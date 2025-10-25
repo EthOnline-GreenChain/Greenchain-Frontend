@@ -7,6 +7,7 @@ import ProcureForm from "@/components/procurement/ProcureForm";
 import OptimizedBasket from "@/components/procurement/OptimizedBasket";
 import AutoProcureButton from "@/components/procurement/AutoProcureButton";
 import ProcureToaster from "@/components/procurement/ProcureToaster";
+import ProcureAuditTrail from "@/components/procurement/ProcureAuditTrail";
 
 export default function ProcurePage() {
   const [amount, setAmount] = useState(25);
@@ -20,6 +21,140 @@ export default function ProcurePage() {
     setEstimatedCost(Number(cost).toFixed(2));
   }
 
+  const trade = {
+    status: "ok",
+    trade: {
+      order_id: "ORD-78a6fe2d",
+      run_id: "78a6fe2d-6743-4408-a194-0f3143c67e8d",
+      policy_name: "Balanced quality v1",
+      target_tco2e: 0.326,
+      basket: {
+        target_tco2e: 0.326,
+        lines: [
+          {
+            provider_id:
+              "agent1qdujjdunu68a9vc8fx6m5gxr0mtwhkxurpjc0sdpqu3fzttg3lds5572c3d",
+            credit_id: "IN-NATURE-2020",
+            project_id: "P-IN-001",
+            registry: "Verra",
+            cls: "nature_based",
+            country: "IN",
+            vintage: 2020,
+            tonnes: 0.1304,
+            unit_price_pyusd: 9.8,
+            score: 0.731,
+          },
+          {
+            provider_id:
+              "agent1qds4dd09w6kq27mpldew0eukzrz0qxxt2y3q5v8synw5kk4873q9sx2lfcm",
+            credit_id: "NP-NATURE-2022",
+            project_id: "P-NP-001",
+            registry: "Verra",
+            cls: "nature_based",
+            country: "NP",
+            vintage: 2022,
+            tonnes: 0.08,
+            unit_price_pyusd: 9.9,
+            score: 0.68375,
+          },
+          {
+            provider_id:
+              "agent1qdujjdunu68a9vc8fx6m5gxr0mtwhkxurpjc0sdpqu3fzttg3lds5572c3d",
+            credit_id: "IN-TECH-2021",
+            project_id: "P-IN-002",
+            registry: "Gold Standard",
+            cls: "tech_based",
+            country: "IN",
+            vintage: 2021,
+            tonnes: 0.1304,
+            unit_price_pyusd: 10.2,
+            score: 0.738,
+          },
+        ],
+        expected_total_pyusd: 3.4,
+        policy_name: "Balanced quality v1",
+      },
+      reservation_holds: [
+        {
+          hold_id: "HOLD-5149ff20",
+          provider_id:
+            "agent1qdujjdunu68a9vc8fx6m5gxr0mtwhkxurpjc0sdpqu3fzttg3lds5572c3d",
+          credit_id: "IN-NATURE-2020",
+          tonnes: 0.1304,
+          unit_price: 9.8,
+          expires_at: "2025-10-25T15:47:39Z",
+        },
+        {
+          hold_id: "HOLD-fb38975c",
+          provider_id:
+            "agent1qdujjdunu68a9vc8fx6m5gxr0mtwhkxurpjc0sdpqu3fzttg3lds5572c3d",
+          credit_id: "IN-TECH-2021",
+          tonnes: 0.1304,
+          unit_price: 10.2,
+          expires_at: "2025-10-25T15:47:39Z",
+        },
+        {
+          hold_id: "HOLD-84186227",
+          provider_id:
+            "agent1qds4dd09w6kq27mpldew0eukzrz0qxxt2y3q5v8synw5kk4873q9sx2lfcm",
+          credit_id: "NP-NATURE-2022",
+          tonnes: 0.08,
+          unit_price: 9.9,
+          expires_at: "2025-10-25T15:47:39Z",
+        },
+      ],
+      settlement: {
+        tx_hashes: ["0xTXc4e1e92dab29", "0xTXcd058a7e51c6", "0xTX1b7acd5c0e06"],
+        fills: [
+          {
+            credit_id: "IN-NATURE-2020",
+            tonnes: 0.1304,
+            unit_price: 9.8,
+            hold_id: "HOLD-5149ff20",
+          },
+          {
+            credit_id: "IN-TECH-2021",
+            tonnes: 0.1304,
+            unit_price: 10.2,
+            hold_id: "HOLD-fb38975c",
+          },
+          {
+            credit_id: "NP-NATURE-2022",
+            tonnes: 0.08,
+            unit_price: 9.9,
+            hold_id: "HOLD-84186227",
+          },
+        ],
+      },
+      retirements: {
+        retirements: [
+          {
+            credit_id: "IN-NATURE-2020",
+            tonnes: 0.1304,
+            tx_hash: "0xRET728e8abb2ea1",
+            proof_hash:
+              "0xff174816f9c85d2eca1dfc18d9d182e8385c834308eb3f26c68e40c7bac31f9f",
+          },
+          {
+            credit_id: "IN-TECH-2021",
+            tonnes: 0.1304,
+            tx_hash: "0xRETf694c95a33a1",
+            proof_hash:
+              "0xff174816f9c85d2eca1dfc18d9d182e8385c834308eb3f26c68e40c7bac31f9f",
+          },
+          {
+            credit_id: "NP-NATURE-2022",
+            tonnes: 0.08,
+            tx_hash: "0xRET4e251ba8b584",
+            proof_hash:
+              "0xff174816f9c85d2eca1dfc18d9d182e8385c834308eb3f26c68e40c7bac31f9f",
+          },
+        ],
+      },
+      proof_bundle_hash:
+        "0xff174816f9c85d2eca1dfc18d9d182e8385c834308eb3f26c68e40c7bac31f9f",
+    },
+  };
   // simulate or handle procure
   async function handleAutoProcure() {
     const id = Date.now().toString();
@@ -55,7 +190,8 @@ export default function ProcurePage() {
           stageIndex: prev?.stages?.length ? prev.stages.length - 1 : 3,
           status: "success",
           message:
-            data?.message ?? `Successfully procured ${data?.amount ?? amount} tCO₂e`,
+            data?.message ??
+            `Successfully procured ${data?.amount ?? amount} tCO₂e`,
         }));
         setTimeout(() => setToaster(null), 1600);
       }
@@ -104,6 +240,9 @@ export default function ProcurePage() {
               onClick={handleAutoProcure}
               className="w-full"
             />
+          </div>
+          <div className="w-full">
+            <ProcureAuditTrail trade={trade} />
           </div>
         </div>
       </div>
