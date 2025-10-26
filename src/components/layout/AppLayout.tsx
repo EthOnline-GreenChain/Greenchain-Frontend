@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { ReactNode } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { Header } from "./Header";
 
@@ -14,7 +14,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <Header />
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 p-6 overflow-auto main-content">
             {children}
           </main>
         </div>
