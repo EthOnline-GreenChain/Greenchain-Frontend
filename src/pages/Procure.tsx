@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Leaf, TrendingUp } from "lucide-react";
+import { BarChart3, Leaf, TrendingUp, Upload } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -32,29 +31,107 @@ const providers = [
 ];
 
 export default function Procure() {
-  const [offsetAmount, setOffsetAmount] = useState([25]);
+  const [offsetAmount, setOffsetAmount] = useState([0]);
   const [isProcessing, setIsProcessing] = useState(false);
-
+  const [file, setFile] = useState<File | null>(null);
+  const [fileId, setFileId] = useState<string | null>(null);
+  const [lastTrade, setLastTrade] = useState<any | null>(null);
   const totalCost = (offsetAmount[0] * 1.0).toFixed(2);
 
-  const handleProcure = async () => {
+  // Upload + Calculate CO2
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    setFile(selectedFile);
+    toast.loading("📤 Uploading PDF...", { id: "upload" });
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const res = await fetch("/api/ingest/pdf", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Upload failed");
+      const newFileId = data.file_id;
+      setFileId(newFileId);
+      toast.success("✅ PDF successfully ingested!", { id: "upload" });
+
+      toast.loading("⚙️ Calculating CO₂ emissions...", { id: "calc" });
+      const calcRes = await fetch(`/api/co2/calculate?file_id=${newFileId}`, {
+        method: "POST",
+      });
+      const calcData = await calcRes.json();
+      if (!calcRes.ok)
+        throw new Error(calcData.message || "CO₂ calculation failed");
+      toast.success("✅ CO₂ calculated!", { id: "calc" });
+
+      const {
+        scope2_location_tonnes,
+        scope2_market_tonnes,
+        scope3_3_tandd_tonnes,
+      } = calcData.outputs || {};
+      const totalCO2 =
+        (scope2_location_tonnes || 0) +
+        (scope2_market_tonnes || 0) +
+        (scope3_3_tandd_tonnes || 0);
+      setOffsetAmount([parseFloat(totalCO2.toFixed(3))]);
+      toast.success(`🌿 Offset updated: ${totalCO2.toFixed(3)} tCO₂e`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Upload or CO₂ calculation failed", { id: "upload" });
+    }
+  };
+
+  // Trigger Procurement
+  const handleTriggerProcure = async () => {
+    if (!fileId) return toast.error("Please upload a PDF first!");
     setIsProcessing(true);
+    toast.loading("🤖 Triggering procurement...", { id: "procure" });
 
-    // Simulate agent procurement
-    toast.loading("Agent analyzing providers...", { id: "procure" });
+    try {
+      console.log("Triggering procurement for file:", fileId);
+      const triggerRes = await fetch(
+        `/api/procurement/trigger?file_id=${fileId}`,
+        {
+          method: "POST",
+        }
+      );
+      const triggerData = await triggerRes.json();
+      console.log("📦 Procurement Trigger JSON:", triggerData);
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    toast.loading("Securing PYUSD payment...", { id: "procure" });
+      if (!triggerRes.ok)
+        throw new Error(triggerData.message || "Procurement trigger failed");
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    toast.loading("Minting credit tokens...", { id: "procure" });
+      toast.success("✅ Procurement Triggered!", { id: "procure" });
+    } catch (error) {
+      console.error("❌ Trigger Procurement Error:", error);
+      toast.error("Procurement trigger failed", { id: "procure" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    toast.success(`Successfully procured ${offsetAmount[0]} tCO₂e credits!`, {
-      id: "procure",
-    });
+  // Fetch Last Trade
+  const handleShowLastTrade = async () => {
+    toast.loading("📊 Fetching last trade...", { id: "trade" });
 
-    setIsProcessing(false);
+    try {
+      const tradeRes = await fetch(`/bureau/last-trade`);
+      const tradeData = await tradeRes.json();
+      console.log("📦 Last Trade JSON:", tradeData);
+
+      if (!tradeRes.ok)
+        throw new Error(tradeData.message || "Failed to fetch last trade");
+
+      setLastTrade(tradeData);
+      toast.success("✅ Last trade data loaded!", { id: "trade" });
+    } catch (error) {
+      console.error("❌ Show Last Trade Error:", error);
+      toast.error("Failed to fetch last trade", { id: "trade" });
+    }
   };
 
   return (
@@ -66,179 +143,186 @@ export default function Procure() {
         </p>
       </header>
 
-      {/* CSV Upload Section */}
-      <div className="w-full flex justify-center">
-        <div className="w-full max-w-4xl">
-          <Card className="rounded-2xl border border-white/6 p-6 bg-[#0b1117]/60">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-white">
-                Upload Facility Bills
-              </h2>
-              <p className="text-sm text-neutral-400">
-                Upload CSV of bills or enter a single facility.
-              </p>
+      {/* Upload Section */}
+      <Card className="rounded-2xl border border-white/6 p-6 bg-[#0b1117]/60">
+        <h2 className="text-lg font-semibold text-white">
+          Upload Electricity Bill (PDF)
+        </h2>
+        <p className="text-sm text-neutral-400">
+          Upload your facility’s electricity bill in PDF format.
+        </p>
+        <div className="mt-6">
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={handleFileChange}
+            className="block w-full text-sm text-neutral-200 file:mr-4 file:py-3 file:px-4 file:rounded-lg file:border-2 file:border-dashed file:border-white/10 hover:file:border-emerald-500/50 file:bg-[#0b1117]/40 hover:file:bg-[#0b1117]/60 file:text-neutral-200 cursor-pointer"
+          />
+          {file && (
+            <div className="flex items-center gap-2 text-sm text-emerald-400 mt-2">
+              <Upload className="w-4 h-4" /> {file.name}
             </div>
+          )}
+          {fileId && (
+            <div className="text-xs text-emerald-400 mt-2">
+              📦 File ID: <code>{fileId}</code>
+            </div>
+          )}
+        </div>
+      </Card>
 
-            <div className="mt-6">
-              <p className="text-sm text-neutral-400 mb-4">
-                CSV columns:{" "}
-                <code className="px-2 py-1 rounded bg-[#0b1117]/80 border border-white/6 text-emerald-400 font-mono">
-                  facility_name, date, kWh, fuel_type, fuel_amount
-                </code>
-              </p>
+      {/* Offset Controls */}
+      <Card className="rounded-2xl border border-white/6 p-6 bg-[#0b1117]/60">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Offset Amount</h2>
+          <div className="text-sm text-neutral-400">
+            Select the amount of carbon credits
+          </div>
+        </div>
+        <div className="mt-6">
+          <Slider
+            value={offsetAmount}
+            onValueChange={setOffsetAmount}
+            min={0}
+            max={5}
+            step={0.001}
+          />
+          <div className="text-2xl font-extrabold text-white mt-3">
+            {offsetAmount[0]}{" "}
+            <span className="text-sm text-neutral-400">tCO₂e</span>
+          </div>
+        </div>
+        <div className="mt-4 rounded-lg border border-white/6 p-4 bg-[#0b1117]/40">
+          <div className="flex justify-between">
+            <span className="text-sm text-neutral-400">Estimated Cost</span>
+            <span className="text-2xl font-extrabold text-emerald-400">
+              ${totalCost} PYUSD
+            </span>
+          </div>
+        </div>
+      </Card>
 
-              <div className="flex flex-col gap-3">
-                <div className="group relative">
-                  <input
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="block w-full text-sm text-neutral-200 
-                             file:mr-4 file:py-3 file:px-4 
-                             file:rounded-lg file:border-2 file:border-dashed 
-                             file:border-white/10 hover:file:border-emerald-500/50
-                             file:bg-[#0b1117]/40 hover:file:bg-[#0b1117]/60
-                             file:text-neutral-200 cursor-pointer
-                             focus:outline-none focus:ring-2 focus:ring-emerald-500/20
-                             transition-all duration-200"
-                  />
-                  <div
-                    className="absolute inset-0 rounded-lg border border-white/10 pointer-events-none
-                               group-hover:border-emerald-500/30 transition-colors duration-200"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
-                  <span className="font-medium text-neutral-400">Example:</span>
-                  <span className="font-mono">
-                    Hotel Lisboa,2025-10-12,420,none,0
-                  </span>
+      {/* Providers */}
+      <Card className="rounded-2xl border border-white/6 p-6 bg-[#0b1117]/60">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle>Optimized Basket</CardTitle>
+          <CardDescription>
+            AI-selected providers based on price and quality
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 px-0">
+          {providers.map((p) => (
+            <div
+              key={p.id}
+              className="flex justify-between items-center border border-white/10 p-3 rounded-lg"
+            >
+              <div className="flex gap-3 items-center">
+                <Leaf className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <p className="text-white">{p.name}</p>
+                  <p className="text-xs text-neutral-400">
+                    {p.type} — {p.vintage}
+                  </p>
                 </div>
               </div>
+              <p className="text-sm text-neutral-300">
+                {p.allocation}% at ${p.price}/tCO₂e
+              </p>
             </div>
-          </Card>
-        </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Action Buttons */}
+      <div className="space-y-4">
+        <Button
+          onClick={handleTriggerProcure}
+          disabled={isProcessing}
+          className="w-full h-12 text-base gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+        >
+          {isProcessing ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <TrendingUp className="w-5 h-5" /> Auto Procure
+            </>
+          )}
+        </Button>
+
+        <Button
+          onClick={handleShowLastTrade}
+          className="w-full h-12 text-base gap-2 bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          <BarChart3 className="w-5 h-5" /> Show Last Trade
+        </Button>
       </div>
 
-      <div className="w-full flex justify-center">
-        <div className="w-full max-w-4xl space-y-6">
-          <Card className="rounded-2xl border border-white/6 p-6 bg-[#0b1117]/60">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">
-                Offset Amount
-              </h2>
-              <div className="text-sm text-neutral-400">
-                Select the amount of carbon credits to offset
-              </div>
-            </div>
+      {/* Last Trade Section */}
+      {lastTrade && lastTrade.trade && (
+        <Card className="rounded-2xl border border-white/6 p-6 bg-[#0b1117]/60">
+          <CardHeader className="px-0 pt-0">
+            <CardTitle>🪙 Last Trade Summary</CardTitle>
+            <CardDescription>
+              Recent procurement details executed by the Bureau
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-neutral-300">
+            <p>
+              <strong>Order ID:</strong> {lastTrade.trade.order_id}
+            </p>
+            <p>
+              <strong>Policy:</strong> {lastTrade.trade.policy_name}
+            </p>
+            <p>
+              <strong>Target:</strong> {lastTrade.trade.target_tco2e} tCO₂e
+            </p>
 
-            <div className="mt-6">
-              <label className="block mb-2 text-sm text-neutral-300">
-                Amount to offset
-              </label>
-              <div className="flex items-center gap-6">
-                <Slider
-                  value={offsetAmount}
-                  onValueChange={setOffsetAmount}
-                  min={1}
-                  max={100}
-                  step={1}
-                  className="w-full accent-emerald-400"
-                  aria-label="Amount to offset"
-                />
-                <div className="text-2xl font-extrabold text-white">
-                  {offsetAmount[0]}{" "}
-                  <span className="text-sm text-neutral-400">tCO₂e</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mt-2 text-xs text-neutral-400">
-                <span>1 tCO₂e</span>
-                <span>100 tCO₂e</span>
-              </div>
-
-              <div className="mt-4 rounded-lg border border-white/6 p-4 bg-[#0b1117]/40">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-neutral-400">
-                      Estimated Cost
-                    </div>
-                    <div className="text-xs text-neutral-400">
-                      Payment will be processed on Sepolia testnet
-                    </div>
-                  </div>
-                  <div className="text-2xl font-extrabold text-emerald-400">
-                    ${totalCost}{" "}
-                    <span className="text-sm text-neutral-400">PYUSD</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="rounded-2xl border border-white/6 p-6 bg-[#0b1117]/60">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle>Optimized Basket</CardTitle>
-              <CardDescription>
-                AI-selected providers based on price, quality, and vintage
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 px-0">
-              {providers.map((provider) => (
+            <div className="mt-4">
+              <h3 className="font-semibold text-white mb-2">
+                Basket Breakdown:
+              </h3>
+              {lastTrade.trade.basket.lines.map((line: any, idx: number) => (
                 <div
-                  key={provider.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-white/6 bg-[#0b1117]/40 hover:border-emerald-500/50 transition-all group"
+                  key={idx}
+                  className="border border-white/10 rounded-lg p-3 mb-2"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                      <Leaf className="w-5 h-5 text-emerald-500" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-white">{provider.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          variant="outline"
-                          className="text-xs border-white/6 text-neutral-300"
-                        >
-                          {provider.type}
-                        </Badge>
-                        <span className="text-xs text-neutral-400">
-                          Vintage {provider.vintage}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-white">
-                      {provider.allocation}%
-                    </p>
-                    <p className="text-xs text-neutral-400">
-                      ${provider.price}/tCO₂e
-                    </p>
-                  </div>
+                  <p>
+                    <strong>{line.credit_id}</strong> ({line.registry}) —{" "}
+                    {line.tonnes} tCO₂e
+                  </p>
+                  <p className="text-neutral-400 text-xs">
+                    {line.cls} • {line.country} • {line.vintage} • $
+                    {line.unit_price_pyusd}/tCO₂e
+                  </p>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
 
-          <Button
-            onClick={handleProcure}
-            disabled={isProcessing}
-            className="w-full h-12 text-base gap-2 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
-          >
-            {isProcessing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <TrendingUp className="w-5 h-5" />
-                Auto-Procure {offsetAmount[0]} tCO₂e
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+            <div className="mt-4">
+              <h3 className="font-semibold text-white mb-2">Settlement TXs:</h3>
+              <ul className="text-xs text-neutral-400 space-y-1">
+                {lastTrade.trade.settlement.tx_hashes.map(
+                  (tx: string, idx: number) => (
+                    <li key={idx}>{tx}</li>
+                  )
+                )}
+              </ul>
+            </div>
+
+            <div className="mt-4">
+              <h3 className="font-semibold text-white mb-2">
+                Proof Bundle Hash:
+              </h3>
+              <code className="text-emerald-400 break-all">
+                {lastTrade.trade.proof_bundle_hash}
+              </code>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
