@@ -49,10 +49,13 @@ export default function Procure() {
     formData.append("file", selectedFile);
 
     try {
-      const res = await fetch("/api/ingest/pdf", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(
+        "https://greenchain-agents.onrender.com/ingest/pdf",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Upload failed");
       const newFileId = data.file_id;
@@ -60,9 +63,12 @@ export default function Procure() {
       toast.success("✅ PDF successfully ingested!", { id: "upload" });
 
       toast.loading("⚙️ Calculating CO₂ emissions...", { id: "calc" });
-      const calcRes = await fetch(`/api/co2/calculate?file_id=${newFileId}`, {
-        method: "POST",
-      });
+      const calcRes = await fetch(
+        `https://greenchain-agents.onrender.com/co2/calculate?file_id=${newFileId}`,
+        {
+          method: "POST",
+        }
+      );
       const calcData = await calcRes.json();
       if (!calcRes.ok)
         throw new Error(calcData.message || "CO₂ calculation failed");
@@ -94,7 +100,7 @@ export default function Procure() {
     try {
       console.log("Triggering procurement for file:", fileId);
       const triggerRes = await fetch(
-        `/api/procurement/trigger?file_id=${fileId}`,
+        `https://greenchain-agents.onrender.com/procurement/trigger?file_id=${fileId}`,
         {
           method: "POST",
         }
@@ -119,7 +125,9 @@ export default function Procure() {
     toast.loading("📊 Fetching last trade...", { id: "trade" });
 
     try {
-      const tradeRes = await fetch(`/bureau/last-trade`);
+      const tradeRes = await fetch(
+        `https://greenchain-bureau.onrender.com/last-trade`
+      );
       const tradeData = await tradeRes.json();
       console.log("📦 Last Trade JSON:", tradeData);
 
