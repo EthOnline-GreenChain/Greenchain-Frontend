@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://greenchain-agents.onrender.com/$1"
+    },
+    {
+      "source": "/bureau/(.*)",
+      "destination": "https://greenchain-bureau.onrender.com/$1"
+    }
+  ]
+}
